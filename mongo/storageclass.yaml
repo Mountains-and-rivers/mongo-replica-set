@@ -1,0 +1,5 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: nfs-storageclass   #命名，可自定义，后面PVC需要引用
+provisioner: jim.com/nfs   #对应环境变量PROVISIONER_NAME的值
