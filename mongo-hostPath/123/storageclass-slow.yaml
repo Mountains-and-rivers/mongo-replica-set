@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: slow
+provisioner: kubernetes.io/glusterfs
+parameters:
+  resturl: "http://10.254.82.26:8080"
+  restuser: ""
+  secretNamespace: ""
+  secretName: ""
+reclaimPolicy: Retain
+allowVolumeExpansion: true
