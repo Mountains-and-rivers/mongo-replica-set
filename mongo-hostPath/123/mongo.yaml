@@ -4,38 +4,93 @@ metadata:
   name: mongo
 ---
 apiVersion: v1
+data:
+     #echo -n "mongoadmin" | base64
+    init.userid: bW9uZ29hZG1pbg==
+    #echo -n "adminpassword" | base64
+    init.password: YWRtaW5wYXNzd29yZA==
+kind: Secret
+metadata:
+  name: mongo-init-credentials
+  namespace: mongo
+type: Opaque
+---
+# Create a secret to hold a keyfile used to authenticate between replicaset members
+# this seems to need to be base64 encoded twice (might not be the case if this
+# was an actual file reference as per the examples, but we're using a simple key
+# here
+apiVersion: v1
+data:
+  #echo -n "CHANGEMECHANGEMECHANGEME" | base64 | base64
+  mongodb-keyfile: UTBoQlRrZEZUVVZEU0VGT1IwVk5SVU5JUVU1SFJVMUYK
+kind: Secret
+metadata:
+  name: mongo-key
+  namespace: mongo
+type: Opaque
+---
+# Create a service account for Mongo and give it Pod List role
+# note this is a ClusterROleBinding - the Mongo Pod will be able
+# to list all pods present in the cluster regardless of namespace
+# (and this is exactly what it does...see below)
+apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: mongo
+  name: mongo-serviceaccount
   namespace: mongo
 ---
-apiVersion: rbac.authorization.k8s.io/v1beta1
+apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: mongo
+  name: mongo-mongo-serviceaccount-view
+  namespace: mongo
 subjects:
-  - kind: ServiceAccount
-    name: mongo
-    namespace: mongo
+- kind: ServiceAccount
+  name: mongo-serviceaccount
+  namespace: mongo
 roleRef:
-  kind: ClusterRole
-  name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pod-viewer
 ---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: pod-viewer
+  namespace: mongo
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["list"]
+---
+#Create a Storage Class for Google Container Engine
+#Note fstype: xfs isn't supported by GCE yet and the
+#Pod startup will hang if you try to specify it.
+kind: StorageClass
+apiVersion: storage.k8s.io/v1beta1
+metadata:
+  namespace: mongo
+  name: mongodb-ssd-storage
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-ssd
+allowVolumeExpansion: true
+---
+#Headless Service for StatefulSets
 apiVersion: v1
 kind: Service
 metadata:
- name: mongo
- namespace: mongo
- labels:
-   name: mongo
+  namespace: mongo
+  name: mongo-db
+  labels:
+    name: mongo-db
 spec:
  ports:
  - port: 27017
    targetPort: 27017
  clusterIP: None
  selector:
-   role: mongo
+   app: mongo
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -48,14 +103,18 @@ spec:
   selector:
     matchLabels:
       role: mongo
-      environment: staging
+      environment: mongo
   template:
     metadata:
       labels:
         role: mongo
-        environment: staging
-        replicaset: MainRepSet
+        environment: mongo
+        app: mongo
     spec:
+      #Run the Pod using the service account
+      serviceAccountName: mongo-serviceaccount
+      terminationGracePeriodSeconds: 10
+      #Prevent a Mongo Replica running on the same node as another (avoid single point of failure)
       affinity:
         podAntiAffinity:  # 添加 Pod 反亲和性，将副本打散在不同的节点
           preferredDuringSchedulingIgnoredDuringExecution:  # 软策略
@@ -66,43 +125,120 @@ spec:
                 - key: replicaset
                   operator: In
                   values:
-                  - MainRepSet
+                  - mongo
               topologyKey: kubernetes.io/hostname
-      terminationGracePeriodSeconds: 10
-      serviceAccountName: mongo
       volumes:
         - name: mongo-data
           hostPath:
             path: /mnt/data
+        - name: mongo-key
+          secret:
+            secretName: mongo-key
+            # https://coderstoolbox.net/number/
+            # Convert to octal to decimal because kube only accepts
+            # decimal as input
+            defaultMode: 0400
       containers:
         - name: mongo
-          image: mongo:4.0
+          image: mongo:4.0.12
           imagePullPolicy: IfNotPresent
           command:
-            - mongod
-            - "--wiredTigerCacheSizeGB"
-            - "0.25"
-            - "--bind_ip"
-            - "0.0.0.0"
-            - "--replSet"
-            - MainRepSet
-            - "--smallfiles"
-            - "--noprealloc"
+            #Authentication adapted from https://gist.github.com/thilinapiy/0c5abc2c0c28efe1bbe2165b0d8dc115
+            #in order to pass the new admin user id and password in
+          - /bin/sh
+          - -c
+          - >
+            if [ -f /data/db/admin-user.lock ]; then
+              echo "KUBERNETES LOG $HOSTNAME- Starting Mongo Daemon with runtime settings (clusterAuthMode)"
+              #ensure wiredTigerCacheSize is set within the size of the containers memory limit
+              mongod --wiredTigerCacheSizeGB 0.5 --replSet rs0 --bind_ip 0.0.0.0 --smallfiles --noprealloc --clusterAuthMode keyFile --keyFile /etc/secrets-volume/mongodb-keyfile --setParameter authenticationMechanisms=SCRAM-SHA-1;
+            else
+              echo "KUBERNETES LOG $HOSTNAME- Starting Mongo Daemon with setup setting (authMode)"
+              mongod --auth;
+            fi;
+          lifecycle:
+              postStart:
+                exec:
+                  command:
+                  - /bin/sh
+                  - -c
+                  - >
+                    if [ ! -f /data/db/admin-user.lock ]; then
+                      echo "KUBERNETES LOG $HOSTNAME- no Admin-user.lock file found yet"
+                      #replaced simple sleep, with ping and test.
+                      while (! mongo --eval "db.adminCommand('ping')"); do sleep 10; echo "KUBERNETES LOG $HOSTNAME - waiting another 10 seconds for mongo to start" >> /data/db/configlog.txt; done;
+                      touch /data/db/admin-user.lock
+                      if [ "$HOSTNAME" = "mongo-0" ]; then
+                        echo "KUBERNETES LOG $HOSTNAME- creating admin user ${MONGODB_USERNAME}"
+                        mongo --eval "db = db.getSiblingDB('admin'); db.createUser({ user: '${MONGODB_USERNAME}', pwd: '${MONGODB_PASSWORD}', roles: [{ role: 'root', db: 'admin' }]});" >> /data/db/config.log
+                      fi;
+                      echo "KUBERNETES LOG $HOSTNAME-shutting mongod down for final restart"
+                      mongod --shutdown;
+                    fi;
+          env:
+            - name: MONGODB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-init-credentials
+                  key: init.userid
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-init-credentials
+                  key: init.password
           ports:
             - containerPort: 27017
-          volumeMounts:
-            - name: mongo-data
-              mountPath: /data/db
+          livenessProbe:
+            exec:
+              command:
+              - mongo
+              - --eval
+              - "db.adminCommand('ping')"
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+              - mongo
+              - --eval
+              - "db.adminCommand('ping')"
+            initialDelaySeconds: 5
+            periodSeconds: 60
+            timeoutSeconds: 10
           resources:
             requests:
-              cpu: 1
-              memory: 300Mi
+              memory: "350Mi"
+              cpu: 0.05
+            limits:
+              memory: "1Gi"
+              cpu: 0.1
+          volumeMounts:
+            - name: mongo-key
+              mountPath: "/etc/secrets-volume"
+              readOnly: true
+            - name: mongo-data
+              mountPath: /data/db
         - name: mongo-sidecar
           image: cvallance/mongo-k8s-sidecar
           env:
+            # Sidecar searches for any POD in the CLUSTER with these labels
+            # not just the namespace..so we need to ensure the POD is labelled
+            # to differentiate it from other PODS in different namespaces
             - name: MONGO_SIDECAR_POD_LABELS
-              value: "role=mongo,environment=staging"
-            - name: KUBE_NAMESPACE
-              value: "mongo"
-            - name: KUBERNETES_MONGO_SERVICE_NAME
-              value: "mongo"
+              value: "app=mongo,environment=mongo"
+            - name: MONGODB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-init-credentials
+                  key: init.userid
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-init-credentials
+                  key: init.password
+            #don't be fooled by this..it's not your DB that
+            #needs specifying, it's the admin DB as that
+            #is what you authenticate against with mongo.
+            - name: MONGODB_DATABASE
+              value: admin
