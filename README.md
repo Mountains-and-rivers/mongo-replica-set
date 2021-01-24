@@ -18,6 +18,7 @@ $ kubeadm join <Master节点的IP和端口 >
 - 硬件配置：4GB或更多RAM，2个CPU或更多CPU，硬盘30GB或更多
 - 可以访问外网，需要拉取镜像，如果服务器不能上网，需要提前下载镜像并导入节点
 - 禁止swap分区
+- 安装参考: https://github.com/Mountains-and-rivers/k8s-code-analysis/blob/master/01-%E6%90%AD%E5%BB%BA%E8%B0%83%E8%AF%95%E7%8E%AF%E5%A2%83.md
 
 ## 2. 准备环境
 
