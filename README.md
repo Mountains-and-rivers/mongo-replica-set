@@ -24,8 +24,8 @@ $ kubeadm join <Master节点的IP和端口 >
 | 角色   | IP             |
 | ------ | -------------- |
 | master | 192.168.31.209 |
-| node1  | 192.168.31.240 |
-| node2  | 192.168.31.223 |
+| node01  | 192.168.31.240 |
+| node02  | 192.168.31.223 |
 
 ```
 # 关闭防火墙
@@ -46,8 +46,8 @@ hostnamectl set-hostname <hostname>
 # 在master添加hosts
 cat >> /etc/hosts << EOF
 192.168.31.209 master
-192.168.31.240 node1
-192.168.31.223 node2
+192.168.31.240 node01
+192.168.31.223 node02
 EOF
 
 # 将桥接的IPv4流量传递到iptables的链
