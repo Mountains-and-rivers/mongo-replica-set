@@ -59,8 +59,11 @@ EOF
 sysctl --system  # 生效
 
 # 时间同步
-yum install ntpdate -y
-ntpdate time.windows.com
+rpm -ivh http://mirrors.wlnmp.com/centos/wlnmp-release-centos.noarch.rpm
+
+yum install wntp -y
+
+ntpdate ntp1.aliyun.com
 ```
 
 ## 3. 所有节点安装Docker/kubeadm/kubelet
@@ -70,11 +73,19 @@ Kubernetes默认CRI（容器运行时）为Docker，因此先安装Docker。
 ### 3.1 安装Docker
 
 ```
-$ wget https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo -O /etc/yum.repos.d/docker-ce.repo
-$ yum -y install docker-ce-18.06.1.ce-3.el7
-$ systemctl enable docker && systemctl start docker
-$ docker --version
-Docker version 18.06.1-ce, build e68fc7a
+sudo yum install -y yum-utils   device-mapper-persistent-data  lvm2
+
+sudo yum-config-manager  --add-repo  https://download.docker.com/linux/centos/docker-ce.repo
+wget https://download.docker.com/linux/centos/7/x86_64/edge/Packages/containerd.io-1.2.6-3.3.el7.x86_64.rpm
+
+yum install -y containerd.io-1.2.6-3.3.el7.x86_64.rpm
+sudo yum install docker-ce-19.03.8 docker-ce-cli-19.03.8 containerd.io
+sudo yum install docker-ce-19.03.8 docker-ce-cli-19.03.8 containerd.io
+dnf clean packages
+sudo dnf update -y
+sudo yum install docker-ce docker-ce-cli containerd.io -y
+systemctl start docker
+systemctl enable docker
 ```
 
 ```
@@ -104,7 +115,7 @@ EOF
 由于版本更新频繁，这里指定版本号部署：
 
 ```
-$ yum install -y kubelet-1.18.0 kubeadm-1.18.0 kubectl-1.18.0
+$ yum install -y kubelet-1.20.0 kubeadm-1.20.0 kubectl-1.20.0
 $ systemctl enable kubelet
 ```
 
@@ -113,10 +124,7 @@ $ systemctl enable kubelet
 在192.168.31.209（Master）执行。
 
 ```
-$ kubeadm init \
-  --apiserver-advertise-address=192.168.31.209 \
-  --image-repository registry.aliyuncs.com/google_containers \
-  --kubernetes-version v1.18.0 \
+kubeadm init \
   --service-cidr=10.96.0.0/12 \
   --pod-network-cidr=10.244.0.0/16
 ```
