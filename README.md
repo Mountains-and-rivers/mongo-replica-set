@@ -201,7 +201,7 @@ exports -r #使配置生效
 
 # 9. 给node01 node02 打标签
 
-在master 节点执行
+在master 节点执行(我只有三台机器，请自行添加节点选择器)
 
 ```
 kubectl label nodes node01 mongo=mongo
