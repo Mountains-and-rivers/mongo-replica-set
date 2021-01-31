@@ -80,8 +80,8 @@ wget https://download.docker.com/linux/centos/7/x86_64/edge/Packages/containerd.
 
 yum install -y containerd.io-1.2.6-3.3.el7.x86_64.rpm
 sudo yum install docker-ce-19.03.8 docker-ce-cli-19.03.8 containerd.io
-dnf clean packages
 sudo dnf update -y
+dnf clean packages
 sudo yum install docker-ce docker-ce-cli containerd.io -y
 systemctl start docker
 systemctl enable docker
