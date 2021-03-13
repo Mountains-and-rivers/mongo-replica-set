@@ -34,8 +34,8 @@ systemctl stop firewalld
 systemctl disable firewalld
 
 # 关闭selinux
-sed -i 's/enforcing/disabled/' /etc/selinux/config  # 永久
 setenforce 0  # 临时
+sed -i 's/enforcing/disabled/' /etc/selinux/config  # 永久
 
 # 关闭swap
 swapoff -a  # 临时
