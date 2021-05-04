@@ -123,9 +123,8 @@ systemctl enable kubelet
 在192.168.31.209（Master）执行。
 
 ```
-kubeadm init \
-  --service-cidr=10.96.0.0/12 \
-  --pod-network-cidr=10.244.0.0/16
+kubeadm init --apiserver-advertise-address=192.168.31.209 --service-cidr=10.96.0.0/12  --pod-network-cidr=10.244.0.0/16 \
+
 ```
 
 由于默认拉取镜像地址k8s.gcr.io国内无法访问，这里指定阿里云镜像仓库地址。
