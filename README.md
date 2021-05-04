@@ -114,8 +114,8 @@ EOF
 由于版本更新频繁，这里指定版本号部署：
 
 ```
-$ yum install -y kubelet-1.20.0 kubeadm-1.20.0 kubectl-1.20.0
-$ systemctl enable kubelet
+yum install -y kubelet-1.20.0 kubeadm-1.20.0 kubectl-1.20.0
+systemctl enable kubelet
 ```
 
 ## 4. 部署Kubernetes Master
