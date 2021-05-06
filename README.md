@@ -72,19 +72,64 @@ Kubernetes默认CRI（容器运行时）为Docker，因此先安装Docker。
 
 ### 3.1 安装Docker
 
+(1) 下载安装包
+
 ```
-sudo yum install -y yum-utils   device-mapper-persistent-data  lvm2
+https://download.docker.com/linux/static/stable/x86_64/docker-19.03.9.tgz
+```
 
-sudo yum-config-manager  --add-repo  https://download.docker.com/linux/centos/docker-ce.repo
-wget https://download.docker.com/linux/centos/7/x86_64/edge/Packages/containerd.io-1.2.6-3.3.el7.x86_64.rpm
+(2) 解压二进制包
 
-yum install -y containerd.io-1.2.6-3.3.el7.x86_64.rpm
-sudo yum install docker-ce-19.03.8 docker-ce-cli-19.03.8 containerd.io
-sudo dnf update -y
-dnf clean packages
-sudo yum install docker-ce docker-ce-cli containerd.io -y
+```
+tar zxvf docker-19.03.9.tgz
+mv docker/* /usr/bin
+```
+
+(3)  systemd 管理 docker
+
+```
+cat > /usr/lib/systemd/system/docker.service << EOF
+[Unit]
+Description=Docker Application Container Engine
+Documentation=https://docs.docker.com
+After=network-online.target firewalld.service
+Wants=network-online.target
+[Service]
+Type=notify
+ExecStart=/usr/bin/dockerd
+ExecReload=/bin/kill -s HUP $MAINPID
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+TimeoutStartSec=0
+Delegate=yes
+KillMode=process
+Restart=on-failure
+StartLimitBurst=3
+StartLimitInterval=60s
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+(4)  创建配置文件
+
+```
+mkdir /etc/docker
+cat > /etc/docker/daemon.json << EOF
+{
+"registry-mirrors": ["https://b9pmyelo.mirror.aliyuncs.com"]
+}
+EOF
+```
+
+(5) 启动并设置开机启动
+
+```
+systemctl daemon-reload
 systemctl start docker
 systemctl enable docker
+systemctl status docker
 ```
 
 ```
