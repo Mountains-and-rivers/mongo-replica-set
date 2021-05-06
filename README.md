@@ -168,7 +168,7 @@ systemctl enable kubelet
 在192.168.31.209（Master）执行。
 
 ```
-kubeadm init --apiserver-advertise-address=192.168.31.209 --service-cidr=10.96.0.0/12  --pod-network-cidr=10.244.0.0/16 \
+kubeadm init --apiserver-advertise-address=192.168.31.209 --service-cidr=10.96.0.0/12  --pod-network-cidr=10.244.0.0/16 
 
 ```
 
