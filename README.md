@@ -133,7 +133,7 @@ systemctl status docker
 ```
 
 ```
-$ cat > /etc/docker/daemon.json << EOF
+cat > /etc/docker/daemon.json << EOF
 {
   "registry-mirrors": ["https://b9pmyelo.mirror.aliyuncs.com"]
 }
@@ -143,7 +143,7 @@ EOF
 ### 3.2 添加阿里云YUM软件源
 
 ```
-$ cat > /etc/yum.repos.d/kubernetes.repo << EOF
+cat > /etc/yum.repos.d/kubernetes.repo << EOF
 [kubernetes]
 name=Kubernetes
 baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64
@@ -180,7 +180,7 @@ kubeadm init --apiserver-advertise-address=192.168.31.209 --service-cidr=10.96.0
 mkdir -p $HOME/.kube
 sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
-$ kubectl get nodes
+kubectl get nodes
 ```
 
 注意：该文件需要copy到每个节点下的$HOME/.kube目录
@@ -192,7 +192,7 @@ $ kubectl get nodes
 向集群添加新节点，执行在kubeadm init输出的kubeadm join命令：
 
 ```
-$ kubeadm join 192.168.31.209:6443 --token esce21.q6hetwm8si29qxwn \
+kubeadm join 192.168.31.209:6443 --token esce21.q6hetwm8si29qxwn \
     --discovery-token-ca-cert-hash sha256:00603a05805807501d7181c3d60b478788408cfe6cedefedb1f97569708be9c5
 ```
 
@@ -223,9 +223,9 @@ kube-flannel-ds-amd64-2pc95   1/1     Running   0          72s
 在Kubernetes集群中创建一个pod，验证是否正常运行：
 
 ```
-$ kubectl create deployment nginx --image=nginx
-$ kubectl expose deployment nginx --port=80 --type=NodePort
-$ kubectl get pod,svc
+kubectl create deployment nginx --image=nginx
+kubectl expose deployment nginx --port=80 --type=NodePort
+kubectl get pod,svc
 ```
 
 访问地址：http://NodeIP:Port  
