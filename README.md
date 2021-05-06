@@ -75,7 +75,7 @@ Kubernetes默认CRI（容器运行时）为Docker，因此先安装Docker。
 (1) 下载安装包
 
 ```
-https://download.docker.com/linux/static/stable/x86_64/docker-19.03.9.tgz
+wget https://download.docker.com/linux/static/stable/x86_64/docker-19.03.9.tgz
 ```
 
 (2) 解压二进制包
